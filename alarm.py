@@ -4,11 +4,15 @@ from os.path import expanduser, isfile
 import threading
 
 class Alarm:
+    _id = "snips-skill-alarm"
+
     def __init__(self, concierge):
         self.concierge = concierge
         self.alarms = {}
         self.filename = expanduser('~/.alarm.json')
         self.load()
+        self.concierge.subscribePing(self.on_ping)
+        self.concierge.subscribeView(Alarm._id, self.on_view)
 
     def save(self):
         to_save = [self.alarms[x].toJSON() for x in self.alarms]
@@ -56,6 +60,13 @@ class Alarm:
         if (tag in self.alarms):
             self.alarms[tag].cancel()
         self.save()
+
+    def on_ping(self, client, userdata, msg):
+        if (len(self.alarms)):
+            self.concierge.publishPong(Alarm._id)
+
+    def on_view(self, client, userdata, msg):
+        self.concierge.publishView(Alarm._id, self.getView())
 
 class Data:
     day_to_int = {
