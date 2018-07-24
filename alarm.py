@@ -61,11 +61,11 @@ class Alarm:
             self.alarms[tag].cancel()
         self.save()
 
-    def on_ping(self, client, userdata, msg):
+    def on_ping(self):
         if (len(self.alarms)):
             self.concierge.publishPong(Alarm._id)
 
-    def on_view(self, client, userdata, msg):
+    def on_view(self):
         self.concierge.publishView(Alarm._id, self.getView())
 
 class Data:
