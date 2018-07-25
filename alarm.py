@@ -1,8 +1,10 @@
 import datetime
 import json
+import os
 from os.path import expanduser, isfile
 import threading
 
+DIR = os.path.dirname(os.path.realpath(__file__)) + '/alarm/'
 class Alarm:
     _id = "snips-skill-alarm"
 
@@ -26,7 +28,7 @@ class Alarm:
             data  = json.load(f)
             for x in data:
                 if (x['due_time'] is not None and x['due_time'] != 'None'):
-                    self.alarms[x['tag']] = Data.fromDict(x)
+                    self.alarms[x['tag']] = Data.fromDict(x, self.concierge)
 
     def getView(self):
         items  = []
@@ -44,14 +46,22 @@ class Alarm:
                     return n_tag
         return ""
 
-    def add(self, every, time, day, siteId):
+    def _add(self, every, time, day, siteId):
         tag = self._find_new_tag("alarm")
         if tag in self.alarms:
             self.alarms[tag].activate()
         else:
-            self.alarms[tag] = Data(tag, siteId, time, day, every)
+            self.alarms[tag] = Data(tag, siteId, time, day, every, c=self.concierge)
         self.save()
 
+    def add(self, every, time, day, siteId, room = None):
+        site_ids = None
+        if room is not None:
+            site_ids = self.concierge.getIdFromRoom(room)
+        if site_ids is None or not len(site_ids):
+            site_ids = [siteId]
+        for tmp in site_ids:
+            self._add(every, time, day, tmp)
     def remove(self, tag):
         if(len(tag)):
             tag= tag[0]
@@ -81,7 +91,7 @@ class Data:
         'SAT' : 5,
         'SUN' : 6
     }
-    def __init__(self, tag, siteId, due_time, day, every, active = True):
+    def __init__(self, tag, siteId, due_time, day, every, active = True, c = None):
         self.tag = tag
         self.due_time = due_time
         self.day = day
@@ -89,6 +99,7 @@ class Data:
         self.siteId = siteId
         self.active = active
         self.t = None
+        self.c = c
         if self.every and self.day == "":
             self.day = "day"
         if due_time is None:
@@ -146,14 +157,13 @@ class Data:
             next_buzz = (self.due_time -
                          datetime.datetime.now()).total_seconds()
 
-        self.t = threading.Timer(next_buzz, self.call, self)
+        self.t = threading.Timer(next_buzz, self.call)
         self.t.start()
     def call(self):
-        topic = getMqttPlayTopic(self.siteId, self.siteId)
-        utils.play_wave(Concierge._client, siteId, siteId, DIR + "alarm.wav")
+        self.c.play_wave(self.siteId, self.siteId, DIR + "alarm.wav")
         self.cancel();
         if (self.every):
-            activate()
+            self.activate()
 
     def cancel(self):
         self.active = False
@@ -184,18 +194,19 @@ class Data:
     def toJSON(self):
         return {
             'tag' : self.tag,
-            'due_time' : str(self.due_time),
+            'due_time' : self.due_time.strftime("%Y-%m-%d %H:%M:%S"),
             'day': self.day,
             'siteId': self.siteId,
             'every' : self.every,
             'active' : self.active
         }
     @staticmethod
-    def fromDict(storage):
+    def fromDict(storage, c):
         return Data(tag = storage['tag'],
                     due_time= datetime.datetime.strptime(storage['due_time'],
                                                          "%Y-%m-%d %H:%M:%S"),
                     day = storage['day'],
                     every = storage['every'],
                     active = storage['active'],
-                   siteId = storage['siteId'])
+                   siteId = storage['siteId'],
+                   c = c)

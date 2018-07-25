@@ -17,7 +17,8 @@ def setAlarm(hermes, intent_message):
     day = Extract.value(intent_message.slots.weekday)
     time = Extract.timeSlot(intent_message.slots.time)
     siteId = intent_message.site_id
-    hermes.alarm.add(every, time, day, siteId)
+    room = Extract.value(intent_message.slots.timer_room, "bedRoom")
+    hermes.alarm.add(every, time, day, siteId, room)
 
 def stopTimer(hermes, intent_message):
     current_session_id = intent_message.session_id
