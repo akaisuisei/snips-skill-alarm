@@ -52,6 +52,9 @@ class Alarm:
             self.alarms[tag].activate()
         else:
             self.alarms[tag] = Data(tag, siteId, time, day, every, c=self.concierge)
+        t = self.alarms[tag].due_time.time()
+        value = t.second + t.minute * 60 + t.hour * 3600
+        self.concierge.publishTime(value=int(value), siteId = siteId)
         self.save()
 
     def add(self, every, time, day, siteId, room = None):
